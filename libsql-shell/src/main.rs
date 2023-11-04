@@ -20,8 +20,8 @@ use tabled::Table;
 #[command(name = "libsql")]
 #[command(about = "libSQL client", long_about = None)]
 struct Cli {
-    #[clap()]
     db_path: Option<String>,
+    commands_from_cli: Option<Vec<String>>,
 
     /// Print inputs before execution
     #[arg(long, default_value = "false")]
@@ -83,6 +83,7 @@ struct Shell {
     width: [usize; 5],
     filename: PathBuf,
 
+    commands_from_cli: Option<Vec<String>>,
     commands_before_repl: Option<Vec<String>>,
     colseparator: String,
     rowseparator: String,
@@ -194,6 +195,7 @@ impl Shell {
             null_value: String::new(),
             filename: PathBuf::from(args.db_path.unwrap_or_else(|| ":memory:".to_string())),
             commands_before_repl: args.command,
+            commands_from_cli: args.commands_from_cli,
             colseparator: String::new(),
             rowseparator: String::new(),
             main_prompt: "libsql> ".to_string(),
@@ -214,11 +216,42 @@ impl Shell {
         self.run_command(split[0], &split[1..]);
     }
 
+    fn parse_and_run_statements(&mut self, line: &str) -> Result<()> {
+        for str_statement in get_str_statements(line.to_string()) {
+            let table = self.run_statement(str_statement, (), false);
+            match table {
+                Ok(table) => {
+                    if self.headers && table.count_rows() == 1
+                        || !self.headers && table.count_rows() == 0
+                    {
+                        continue;
+                    }
+                    writeln!(self.out, "{}", table)?;
+                }
+                Err(e) => {
+                    println!("Error: {}", e);
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn run(mut self, rl: &mut Editor<ShellHelper, FileHistory>) -> Result<()> {
         if let Some(commands) = self.commands_before_repl.take() {
             for command in commands {
                 self.parse_and_run_command(&command);
             }
+        }
+
+        if let Some(commands) = self.commands_from_cli.take() {
+            for command in commands {
+                if command.starts_with('.') {
+                    self.parse_and_run_command(&command);
+                } else {
+                    self.parse_and_run_statements(&command)?;
+                }
+            }
+            return Ok(());
         }
 
         let mut leftovers = String::new();
@@ -245,22 +278,7 @@ impl Shell {
                     if line.starts_with('.') {
                         self.parse_and_run_command(&line);
                     } else {
-                        for str_statement in get_str_statements(line) {
-                            let table = self.run_statement(str_statement, (), false);
-                            match table {
-                                Ok(table) => {
-                                    if self.headers && table.count_rows() == 1
-                                        || !self.headers && table.count_rows() == 0
-                                    {
-                                        continue;
-                                    }
-                                    writeln!(self.out, "{}", table)?;
-                                }
-                                Err(e) => {
-                                    println!("Error: {}", e);
-                                }
-                            }
-                        }
+                        self.parse_and_run_statements(&line)?;
                     }
                 }
                 Err(ReadlineError::Interrupted) => {
@@ -677,6 +695,7 @@ mod tests {
     fn test_empty_statement() {
         let cli = Cli {
             db_path: Some(":memory:".to_string()),
+            commands_from_cli: None,
             echo: false,
             command: None,
         };
