@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use libsql_shell::input::CliInput;
+use libsql_shell::input::Input;
 use anyhow::Result;
 use base64::{engine::general_purpose, Engine as _};
 use clap::Parser;
@@ -72,7 +72,7 @@ struct Shell {
     db: Connection,
     /// Write results here
     out: Out,
-    cli_input: CliInput,
+    input: Input,
 
     echo: bool,
     eqp: bool,
@@ -173,7 +173,7 @@ enum StatsMode {
 }
 
 impl Shell {
-    fn new(args: Cli, cli_input: CliInput) -> Self {
+    fn new(args: Cli, input: Input) -> Self {
         let connection = match args.db_path.as_deref() {
             None | Some("") | Some(":memory:") => {
                 println!("Connected to a transient in-memory database.");
@@ -191,7 +191,7 @@ impl Shell {
         Ok(Self {
             db: connection,
             out: Out::Stdout,
-            cli_input,
+            input,
             echo: args.echo,
             eqp: false,
             explain: ExplainMode::Auto,
@@ -236,7 +236,7 @@ impl Shell {
             } else {
                 self.continuation_prompt.as_str()
             };
-            let readline = self.cli_input.line_editor.readline(prompt);
+            let readline = self.input.editor.readline(prompt);
             match readline {
                 Ok(line) => {
                     let line = leftovers + line.trim_end();
@@ -246,7 +246,7 @@ impl Shell {
                         leftovers = line + " ";
                         continue;
                     };
-                    self.cli_input.line_editor.add_history_entry(&line).ok();
+                    self.input.editor.add_history_entry(&line).ok();
                     if self.echo {
                         writeln!(self.out, "{}", line).unwrap();
                     }
@@ -572,11 +572,11 @@ impl Shell {
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let args = Cli::parse();
-    let cli_input = CliInput::new()?;
+    let input = Input::new()?;
     println!("libSQL version 0.2.0");
-    let mut shell = Shell::new(args, cli_input);
+    let mut shell = Shell::new(args, input);
     let result = shell.run();
-    shell.cli_input.line_editor.save_history(shell.cli_input.history_path.as_path()).ok();
+    shell.input.editor.save_history(shell.input.history.as_path()).ok();
     result
 }
 

@@ -67,25 +67,25 @@ impl Completer for ShellHelper {
     }
 }
 
-pub struct CliInput {
-    pub line_editor: Editor<ShellHelper, FileHistory>,
-    pub history_path: PathBuf,
+pub struct Input {
+    pub editor: Editor<ShellHelper, FileHistory>,
+    pub history: PathBuf,
 }
 
-impl CliInput {
+impl Input {
     pub fn new() -> Result<Self> {
         let config = Config::builder()
             .history_ignore_space(true)
             .completion_type(CompletionType::Circular)
             .build();
-        let mut line_editor = Editor::with_config(config)?;
+        let mut editor = Editor::with_config(config)?;
         let helper = ShellHelper {
             completer: ShellCompleter::new(),
         };
-        line_editor.set_helper(Some(helper));
-        let mut history_path = home::home_dir().unwrap_or_default();
-        history_path.push(HISTORY_FILENAME);
-        line_editor.load_history(history_path.as_path())?;
-        Ok(Self { line_editor, history_path })
+        editor.set_helper(Some(helper));
+        let mut history = home::home_dir().unwrap_or_default();
+        history.push(HISTORY_FILENAME);
+        editor.load_history(history.as_path())?;
+        Ok(Self { editor, history })
     }
 }
