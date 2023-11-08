@@ -22,3 +22,7 @@ tracing-subscriber = "0.3.16"
 [[bin]]
 name = "libsql"
 path = "src/main.rs"
+
+[lib]
+name = "libsql_shell"
+path = "src/lib.rs"
