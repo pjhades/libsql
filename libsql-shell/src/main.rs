@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use libsql_shell::input::Input;
+use libsql_shell::input::CliReader;
 use anyhow::Result;
 use base64::{engine::general_purpose, Engine as _};
 use clap::Parser;
@@ -72,7 +72,7 @@ struct Shell {
     db: Connection,
     /// Write results here
     out: Out,
-    input: Input,
+    cli_reader: CliReader,
 
     echo: bool,
     eqp: bool,
@@ -173,7 +173,7 @@ enum StatsMode {
 }
 
 impl Shell {
-    fn new(args: Cli, input: Input) -> Self {
+    fn new(args: Cli, cli_reader: CliReader) -> Self {
         let connection = match args.db_path.as_deref() {
             None | Some("") | Some(":memory:") => {
                 println!("Connected to a transient in-memory database.");
@@ -191,7 +191,7 @@ impl Shell {
         Ok(Self {
             db: connection,
             out: Out::Stdout,
-            input,
+            cli_reader,
             echo: args.echo,
             eqp: false,
             explain: ExplainMode::Auto,
@@ -223,68 +223,68 @@ impl Shell {
     }
 
     fn run(&mut self) -> Result<()> {
-        if let Some(commands) = self.commands_before_repl.take() {
-            for command in commands {
-                self.parse_and_run_command(&command);
-            }
-        }
+        //if let Some(commands) = self.commands_before_repl.take() {
+        //    for command in commands {
+        //        self.parse_and_run_command(&command);
+        //    }
+        //}
 
-        let mut leftovers = String::new();
-        loop {
-            let prompt = if leftovers.is_empty() {
-                self.main_prompt.as_str()
-            } else {
-                self.continuation_prompt.as_str()
-            };
-            let readline = self.input.editor.readline(prompt);
-            match readline {
-                Ok(line) => {
-                    let line = leftovers + line.trim_end();
-                    if line.ends_with(';') || line.starts_with('.') {
-                        leftovers = String::new();
-                    } else {
-                        leftovers = line + " ";
-                        continue;
-                    };
-                    self.input.editor.add_history_entry(&line).ok();
-                    if self.echo {
-                        writeln!(self.out, "{}", line).unwrap();
-                    }
-                    if line.starts_with('.') {
-                        self.parse_and_run_command(&line);
-                    } else {
-                        for str_statement in get_str_statements(line) {
-                            let table = self.run_statement(str_statement, (), false);
-                            match table {
-                                Ok(table) => {
-                                    if self.headers && table.count_rows() == 1
-                                        || !self.headers && table.count_rows() == 0
-                                    {
-                                        continue;
-                                    }
-                                    writeln!(self.out, "{}", table)?;
-                                }
-                                Err(e) => {
-                                    println!("Error: {}", e);
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(ReadlineError::Interrupted) => {
-                    println!("^C");
-                    leftovers.clear();
-                }
-                Err(ReadlineError::Eof) => {
-                    println!("^D");
-                    break;
-                }
-                Err(err) => {
-                    println!("Error: {:?}", err);
-                    break;
-                }
-            }
-        }
+        //let mut leftovers = String::new();
+        //loop {
+        //    let prompt = if leftovers.is_empty() {
+        //        self.main_prompt.as_str()
+        //    } else {
+        //        self.continuation_prompt.as_str()
+        //    };
+        //    let readline = self.cli_reader.editor.readline(prompt);
+        //    match readline {
+        //        Ok(line) => {
+        //            let line = leftovers + line.trim_end();
+        //            if line.ends_with(';') || line.starts_with('.') {
+        //                leftovers = String::new();
+        //            } else {
+        //                leftovers = line + " ";
+        //                continue;
+        //            };
+        //            self.cli_reader.editor.add_history_entry(&line).ok();
+        //            if self.echo {
+        //                writeln!(self.out, "{}", line).unwrap();
+        //            }
+        //            if line.starts_with('.') {
+        //                self.parse_and_run_command(&line);
+        //            } else {
+        //                for str_statement in get_str_statements(line) {
+        //                    let table = self.run_statement(str_statement, (), false);
+        //                    match table {
+        //                        Ok(table) => {
+        //                            if self.headers && table.count_rows() == 1
+        //                                || !self.headers && table.count_rows() == 0
+        //                            {
+        //                                continue;
+        //                            }
+        //                            writeln!(self.out, "{}", table)?;
+        //                        }
+        //                        Err(e) => {
+        //                            println!("Error: {}", e);
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+        //        Err(ReadlineError::Interrupted) => {
+        //            println!("^C");
+        //            leftovers.clear();
+        //        }
+        //        Err(ReadlineError::Eof) => {
+        //            println!("^D");
+        //            break;
+        //        }
+        //        Err(err) => {
+        //            println!("Error: {:?}", err);
+        //            break;
+        //        }
+        //    }
+        //}
         Ok(())
     }
 
@@ -572,11 +572,11 @@ impl Shell {
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let args = Cli::parse();
-    let input = Input::new()?;
+    let cli_reader = CliReader::new()?;
     println!("libSQL version 0.2.0");
-    let mut shell = Shell::new(args, input);
+    let mut shell = Shell::new(args, cli_reader);
     let result = shell.run();
-    shell.input.editor.save_history(shell.input.history.as_path()).ok();
+    shell.cli_reader.editor.save_history(shell.cli_reader.history.as_path()).ok();
     result
 }
 
