@@ -11699,6 +11699,7 @@ static int process_input(ShellState *p){
   while( errCnt==0 || !bail_on_error || (p->in==0 && stdin_is_interactive) ){
     fflush(p->out);
     zLine = one_input_line(p->in, zLine, nSql>0);
+    printf("one_input_line: [%s]\n", zLine);
     if( zLine==0 ){
       /* End of input */
       if( p->in==0 && stdin_is_interactive ) printf("\n");
@@ -11757,6 +11758,7 @@ static int process_input(ShellState *p){
     }
     if( nSql && QSS_SEMITERM(qss) && sqlite3_complete(zSql) ){
       echo_group_input(p, zSql);
+      printf("sql line: [%s]\n", zSql);
       errCnt += runOneSqlLine(p, zSql, p->in, startline);
       CONTINUE_PROMPT_RESET;
       nSql = 0;

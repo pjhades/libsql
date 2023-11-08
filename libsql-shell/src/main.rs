@@ -223,6 +223,10 @@ impl Shell {
     }
 
     fn run(&mut self) -> Result<()> {
+        loop {
+            let input = self.cli_reader.read_input()?;
+            println!("{input:?}");
+        }
         //if let Some(commands) = self.commands_before_repl.take() {
         //    for command in commands {
         //        self.parse_and_run_command(&command);

@@ -69,6 +69,7 @@ impl Completer for ShellHelper {
     }
 }
 
+#[derive(Debug)]
 pub enum Input {
     DotCommand(String),
     Sql(String),
@@ -111,17 +112,27 @@ impl CliReader {
             } else {
                 &self.cont_prompt
             })?;
+
             self.editor.add_history_entry(&line)?;
+
             if line.starts_with('.') {
                 if !accumulated.is_empty() {
+                    accumulated.push('\n');
                     accumulated.push_str(&line);
                 } else {
                     return Ok(Input::DotCommand(line));
                 }
             } else if !line.starts_with('#') {
                 let trimmed = line.trim_end();
+                if trimmed.to_lowercase() == "go" || trimmed == "/" {
+                    accumulated.push(';');
+                    break;
+                }
+                if !accumulated.is_empty() {
+                    accumulated.push('\n');
+                }
                 accumulated.push_str(trimmed);
-                if trimmed.ends_with(';') || trimmed == "go" || trimmed == "/" {
+                if trimmed.ends_with(';') {
                     break;
                 }
             }
